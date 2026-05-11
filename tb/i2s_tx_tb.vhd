@@ -11,7 +11,7 @@ architecture sim of i2s_tx_tb is
 	signal bck : std_logic := '0';
 	signal dout : std_logic := '0';
 	
-	signal smpl_data : std_logic_vector(31 downto 0);
+	signal smpl_data : std_logic_vector(63 downto 0);
 	signal smpl_valid : std_logic;
 	signal smpl_ready : std_logic;
 
@@ -55,12 +55,12 @@ begin
 		
 		report "ready = " & std_logic'image(smpl_ready);
 		
-		smpl_data <= x"aa55aa55";
+		smpl_data <= x"aa55aa55aa55aa55";
 		smpl_valid <= '1';
 		
 		wait until smpl_ready = '1';
 		
-		smpl_data <= x"55aa55aa";
+		smpl_data <= x"55aa55aaaa55aa55";
 		smpl_valid <= '1';
 		
 		wait;

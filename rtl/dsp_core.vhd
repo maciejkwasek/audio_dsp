@@ -54,6 +54,10 @@ architecture rtl of dsp_core is
 	signal outl : signed(31 downto 0);
 	signal outr : signed(31 downto 0);
 
+	signal echo_sample_in : signed(31 downto 0);
+	signal echo_sample_out : signed(31 downto 0);
+	signal echo_sample_valid : std_logic := '0';
+
 begin
 
 	lfo_inst : entity work.dds_sin
@@ -65,6 +69,16 @@ begin
 
 			-- ok 5Hz
 			phase_step => x"000000ff"
+		);
+
+	echo_buffer_inst : entity work.echo_buffer
+		port map
+		(
+			clk => clk,
+			rst_n => rst_n,
+			sample_in => echo_sample_in,
+			sample_out => echo_sample_out,
+			valid => echo_sample_valid
 		);
 
 	--
@@ -139,31 +153,49 @@ begin
 	--
 	--
 	--
-	dsp_math : process(clk, rst_n)
+--	dsp_tremolo : process(clk, rst_n)
+--	begin
+--		if rst_n = '0' then
+--		elsif rising_edge(clk) then
+--
+--			-- tremolo equation
+--			-- out[n] = in[n] * env
+--			-- env = [(1 - depth) + depth * LFO]
+--			-- LFO = lfo_sample + 32767
+--
+--			lfo1 <= resize(lfo_sample, 17) + to_signed(32767, 17);
+--			lfo2 <= resize(shift_right(lfo1, 1), 16);
+--
+--			env1 <= lfo2 * depth;
+--			env2 <= resize(shift_right(env1, 15), 16);
+--			one_minus_depth <= to_signed(32767,16) - depth;
+--			env3 <= one_minus_depth + env2;
+--
+--			mull <= in1_lsample * env3;
+--			mulr <= in1_rsample * env3;
+--
+--			outl <= resize(shift_right(mull, 15), 32);
+--			outr <= resize(shift_right(mulr, 15), 32);
+--		end if;
+--	end process;
+
+	--
+	--
+	--
+	dsp_echo : process(clk, rst_n)
 	begin
 		if rst_n = '0' then
 		elsif rising_edge(clk) then
 
-			-- tremolo equation
-			-- out[n] = in[n] * env
-			-- env = [(1 - depth) + depth * LFO]
-			-- LFO = lfo_sample + 32767
+			outl <= shift_right(in1_lsample, 1) + shift_right(echo_sample_out, 1);
+			outr <= shift_right(in1_lsample, 1) + shift_right(echo_sample_out, 1);
 
-			lfo1 <= resize(lfo_sample, 17) + to_signed(32767, 17);
-			lfo2 <= resize(shift_right(lfo1, 1), 16);
-
-			env1 <= lfo2 * depth;
-			env2 <= resize(shift_right(env1, 15), 16);
-			one_minus_depth <= to_signed(32767,16) - depth;
-			env3 <= one_minus_depth + env2;
-
-			mull <= in1_lsample * env3;
-			mulr <= in1_rsample * env3;
-
-			outl <= resize(shift_right(mull, 15), 32);
-			outr <= resize(shift_right(mulr, 15), 32);
+			echo_sample_valid <= '0';
+			if fs_tick = '1' then
+				echo_sample_in <= in1_lsample + shift_right(echo_sample_out, 1);
+				echo_sample_valid <= '1';
+			end if;
 		end if;
 	end process;
 
 end architecture;
-

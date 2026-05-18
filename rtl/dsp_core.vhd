@@ -57,6 +57,14 @@ architecture rtl of dsp_core is
 	signal echo_sample_in : signed(31 downto 0);
 	signal echo_sample_out : signed(31 downto 0);
 	signal echo_sample_valid : std_logic := '0';
+	
+	signal fir_lsample_in : signed(31 downto 0);
+	signal fir_lsample_out : signed(31 downto 0);
+	signal fir_lsample_valid : std_logic := '0';
+	
+	signal fir_rsample_in : signed(31 downto 0);
+	signal fir_rsample_out : signed(31 downto 0);
+	signal fir_rsample_valid : std_logic := '0';	
 
 begin
 
@@ -80,6 +88,26 @@ begin
 			sample_out => echo_sample_out,
 			valid => echo_sample_valid
 		);
+		
+	fir_left_inst : entity work.fir
+		port map
+		(
+			clk => clk,
+			rst_n => rst_n,
+			sample_in => fir_lsample_in,
+			sample_out => fir_lsample_out,
+			valid => fir_lsample_valid
+		);
+		
+	fir_right_inst : entity work.fir
+		port map
+		(
+			clk => clk,
+			rst_n => rst_n,
+			sample_in => fir_rsample_in,
+			sample_out => fir_rsample_out,
+			valid => fir_rsample_valid
+		);		
 
 	--
 	--
@@ -98,7 +126,7 @@ begin
 				fs_tick <= '1';
 			else
 				fs_cnt <= fs_cnt + 1;
-			end if;
+			end if; 
 		end if;
 	end process;
 	
@@ -111,9 +139,9 @@ begin
 		elsif rising_edge(clk) then
 			in1_ready <= '0';
 			if in1_valid = '1' then
-				in1_lsample <= signed(in1_data(63 downto 32)) sll 3;
-				in1_rsample <= signed(in1_data(63 downto 32)) sll 3;
-				--in1_rsample <= signed(in1_data(31 downto 0)) sll 3;
+				in1_lsample <= signed(in1_data(63 downto 32));
+				in1_rsample <= signed(in1_data(63 downto 32));
+				--in1_rsample <= signed(in1_data(31 downto 0));
 				in1_ready <= '1';
 			end if;
 		end if;
@@ -182,20 +210,70 @@ begin
 	--
 	--
 	--
-	dsp_echo : process(clk, rst_n)
+	--dsp_echo : process(clk, rst_n)
+	--begin
+		--if rst_n = '0' then
+		--elsif rising_edge(clk) then
+
+			--outl <= shift_right(in1_lsample, 1) + shift_right(echo_sample_out, 1);
+			--outr <= shift_right(in1_rsample, 1) + shift_right(echo_sample_out, 1);
+			
+			--outl <= in1_lsample + echo_sample_out;
+			--outr <= in1_rsample + echo_sample_out;
+			
+			--outl <= in1_lsample;
+			--outr <= in1_rsample;
+
+			--echo_sample_valid <= '0';
+			--if fs_tick = '1' then
+				--echo_sample_in <= in1_lsample + shift_right(echo_sample_out, 1);
+				--echo_sample_valid <= '1';
+			--end if;
+		--end if;
+	--end process;
+
+	--
+	--
+	--
+	dsp_fir : process(clk, rst_n)
 	begin
 		if rst_n = '0' then
 		elsif rising_edge(clk) then
+			
+			outl <= fir_lsample_out;
+			outr <= fir_rsample_out;
 
-			outl <= shift_right(in1_lsample, 1) + shift_right(echo_sample_out, 1);
-			outr <= shift_right(in1_lsample, 1) + shift_right(echo_sample_out, 1);
-
-			echo_sample_valid <= '0';
+			fir_lsample_valid <= '0';
+			fir_rsample_valid <= '0';
+			
 			if fs_tick = '1' then
-				echo_sample_in <= in1_lsample + shift_right(echo_sample_out, 1);
-				echo_sample_valid <= '1';
+				fir_lsample_in <= in1_lsample;
+				fir_rsample_in <= in1_rsample;
+				
+				fir_lsample_valid <= '1';
+				fir_rsample_valid <= '1';
 			end if;
 		end if;
-	end process;
+	end process;	
+	
+	
+	-- 1.
+	-- input
+	---> lowpass
+	---> tremolo
+	---> echo
+	---> output
+	
+	-- 2.
+	-- input
+	--> echo
+	--> lowpass
+	--> tremolo
+	
+	-- 3.
+	--dry ----------------------+
+   --                       mixer -> output
+	--input -> LPF -> echo -----+
+   --             -> tremolo --+
 
 end architecture;
